@@ -17,7 +17,7 @@ Flutter Web + FastAPI + PostgreSQL + Kubernetes.
 
 ### 1. Клонируй репозиторий
 ```bash
-git clone https://github.com/ТВО_НИК/arcana.git
+git clone https://github.com/zerotwo0200/arcana.git
 cd arcana
 ```
 
