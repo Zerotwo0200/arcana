@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: arcana_postgres
+    environment:
+      POSTGRES_USER: arcana
+      POSTGRES_PASSWORD: arcana_pass
+      POSTGRES_DB: arcana_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arcana -d arcana_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    container_name: arcana_api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://arcana:arcana_pass@postgres:5432/arcana_db
+      JWT_SECRET: local-dev-secret-change-in-prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:

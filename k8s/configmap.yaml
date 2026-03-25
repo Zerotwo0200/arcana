@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arcana-config
+  namespace: arcana
+data:
+  POSTGRES_DB: arcana_db
+  POSTGRES_USER: arcana
+  DATABASE_URL: postgresql://arcana:arcana_pass@postgres-service:5432/arcana_db
