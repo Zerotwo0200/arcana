@@ -95,13 +95,7 @@ class _SpreadScreenState extends State<SpreadScreen> {
                 letterSpacing: 8,
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Text('↩', style: TextStyle(color: Color(0xFF8A8070), fontSize: 18)),
-                onPressed: () => context.read<AuthService>().logout(),
-                tooltip: 'Выйти',
-              ),
-            ],
+            actions: const [],
           ),
 
           SliverToBoxAdapter(

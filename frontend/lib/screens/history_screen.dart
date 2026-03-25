@@ -13,8 +13,10 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  late Future<List<Reading>> _future;
   late ReadingsService _service;
+  List<Reading> _readings = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -23,13 +25,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _load();
   }
 
-  void _load() {
-    setState(() => _future = _service.getHistory());
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = await _service.getHistory();
+      setState(() { _readings = data; _loading = false; });
+    } catch (e) {
+      setState(() { _error = e.toString(); _loading = false; });
+    }
   }
 
   Future<void> _delete(int id) async {
     await _service.deleteReading(id);
-    _load();
+    await _load();
   }
 
   String _spreadLabel(String type) {
@@ -44,7 +52,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _formatDate(DateTime dt) {
     final months = ['янв','фев','мар','апр','май','июн',
                     'июл','авг','сен','окт','ноя','дек'];
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}  ·  '
+           '${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}';
   }
 
   @override
@@ -55,10 +64,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         backgroundColor: const Color(0xFF07061A),
         title: Text('ИСТОРИЯ',
           style: GoogleFonts.cinzel(
-            color: const Color(0xFFC8A84B),
-            fontSize: 14, letterSpacing: 6,
-          ),
-        ),
+            color: const Color(0xFFC8A84B), fontSize: 14, letterSpacing: 6)),
         actions: [
           IconButton(
             icon: const Text('↺', style: TextStyle(color: Color(0xFF8A8070), fontSize: 20)),
@@ -66,115 +72,101 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Reading>>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFC8A84B)),
-            );
-          }
-          if (snap.hasError) {
-            return Center(
-              child: Text('Ошибка загрузки',
-                style: GoogleFonts.cormorantGaramond(
-                  color: const Color(0xFF8A8070), fontSize: 16, fontStyle: FontStyle.italic,
-                ),
-              ),
-            );
-          }
-          final readings = snap.data ?? [];
-          if (readings.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFFC8A84B)));
+    }
+    if (_error != null) {
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('✦', style: TextStyle(color: Color(0xFF3A1F6E), fontSize: 40)),
+        const SizedBox(height: 16),
+        Text('Ошибка загрузки', style: GoogleFonts.cormorantGaramond(
+          color: const Color(0xFF8A8070), fontSize: 16, fontStyle: FontStyle.italic)),
+        const SizedBox(height: 12),
+        TextButton(onPressed: _load,
+          child: Text('Попробовать снова', style: GoogleFonts.cinzel(
+            color: const Color(0xFFC8A84B), fontSize: 11, letterSpacing: 2))),
+      ]));
+    }
+    if (_readings.isEmpty) {
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('✦', style: TextStyle(color: Color(0xFF3A1F6E), fontSize: 40)),
+        const SizedBox(height: 16),
+        Text('Раскладов пока нет', style: GoogleFonts.cormorantGaramond(
+          color: const Color(0xFF5F5E5A), fontSize: 18, fontStyle: FontStyle.italic)),
+      ]));
+    }
+    return RefreshIndicator(
+      color: const Color(0xFFC8A84B),
+      backgroundColor: const Color(0xFF0E0A2A),
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        itemCount: _readings.length,
+        itemBuilder: (_, i) => _buildItem(_readings[i], i),
+      ),
+    );
+  }
+
+  Widget _buildItem(Reading r, int i) {
+    return Dismissible(
+      key: Key(r.id.toString()),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A0A0A),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text('✕', style: TextStyle(color: Color(0xFFE24B4A), fontSize: 20)),
+      ),
+      onDismissed: (_) { _delete(r.id); },
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ReadingResultScreen(reading: r)),
+        ).then((_) => _load()),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0E0A2A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF3A1F6E)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(width: 32,
+                child: Column(children: r.cards.take(3).map((c) =>
+                  Text(c.sym, style: const TextStyle(fontSize: 14))).toList())),
+              const SizedBox(width: 14),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('✦', style: TextStyle(color: Color(0xFF3A1F6E), fontSize: 40)),
-                  const SizedBox(height: 16),
-                  Text('Раскладов пока нет',
-                    style: GoogleFonts.cormorantGaramond(
-                      color: const Color(0xFF5F5E5A),
-                      fontSize: 18, fontStyle: FontStyle.italic,
-                    ),
-                  ),
+                  Text(_spreadLabel(r.spreadType), style: GoogleFonts.cinzel(
+                    color: const Color(0xFFC8A84B), fontSize: 11, letterSpacing: 2)),
+                  if (r.question != null) ...[
+                    const SizedBox(height: 4),
+                    Text(r.question!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.cormorantGaramond(
+                        color: const Color(0xFFCBC4B4),
+                        fontSize: 14, fontStyle: FontStyle.italic)),
+                  ],
+                  const SizedBox(height: 4),
+                  Text(_formatDate(r.createdAt), style: GoogleFonts.cinzel(
+                    color: const Color(0xFF5F5E5A), fontSize: 9, letterSpacing: 2)),
                 ],
-              ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: readings.length,
-            itemBuilder: (_, i) {
-              final r = readings[i];
-              return Dismissible(
-                key: Key(r.id.toString()),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 24),
-                  child: const Text('✕', style: TextStyle(color: Color(0xFFE24B4A), fontSize: 20)),
-                ),
-                onDismissed: (_) => _delete(r.id),
-                child: GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ReadingResultScreen(reading: r),
-                  )),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0E0A2A),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF3A1F6E)),
-                    ),
-                    child: Row(
-                      children: [
-                        // Card symbols preview
-                        Column(
-                          children: r.cards.take(3).map((c) =>
-                            Text(c.sym, style: const TextStyle(fontSize: 14))
-                          ).toList(),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_spreadLabel(r.spreadType),
-                                style: GoogleFonts.cinzel(
-                                  color: const Color(0xFFC8A84B),
-                                  fontSize: 11, letterSpacing: 2,
-                                ),
-                              ),
-                              if (r.question != null) ...[
-                                const SizedBox(height: 4),
-                                Text(r.question!,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.cormorantGaramond(
-                                    color: const Color(0xFFCBC4B4),
-                                    fontSize: 14, fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 4),
-                              Text(_formatDate(r.createdAt),
-                                style: GoogleFonts.cinzel(
-                                  color: const Color(0xFF5F5E5A),
-                                  fontSize: 9, letterSpacing: 2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Text('›', style: TextStyle(color: Color(0xFF7A5C1A), fontSize: 22)),
-                      ],
-                    ),
-                  ).animate(delay: (i * 50).ms).fadeIn().slideX(begin: 0.1),
-                ),
-              );
-            },
-          );
-        },
+              )),
+              const Text('›', style: TextStyle(color: Color(0xFF7A5C1A), fontSize: 22)),
+            ],
+          ),
+        ).animate(delay: (i * 50).ms).fadeIn().slideX(begin: 0.1),
       ),
     );
   }

@@ -1,37 +1,48 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService extends ChangeNotifier {
-  // Для локальной разработки через docker-compose:
-  static const String baseUrl = 'http://10.0.2.2:8000';
+  static String get baseUrl {
+    if (kIsWeb) return 'http://localhost:8000';
+    return 'http://10.0.2.2:8000';
+  }
 
   String? _token;
+  String? _email;
+
   String? get token => _token;
+  String? get email => _email;
   bool get isLoggedIn => _token != null;
 
   AuthService() {
-    _loadToken();
+    _loadFromPrefs();
   }
 
-  Future<void> _loadToken() async {
+  Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('token');
+    _email = prefs.getString('email');
     notifyListeners();
   }
 
-  Future<void> _saveToken(String token) async {
+  Future<void> _saveToPrefs(String token, String email) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('token', token);
+    await prefs.setString('email', email);
     _token = token;
+    _email = email;
     notifyListeners();
   }
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
+    await prefs.remove('email');
     _token = null;
+    _email = null;
     notifyListeners();
   }
 
@@ -59,7 +70,7 @@ class AuthService extends ChangeNotifier {
       );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        await _saveToken(data['access_token']);
+        await _saveToPrefs(data['access_token'], email);
         return null;
       }
       final data = jsonDecode(res.body);
