@@ -122,7 +122,7 @@ arcana/
 ### 1. Клонировать репозиторий
 
 ```bash
-git clone https://github.com/ТВО_НИК/arcana.git
+git clone https://github.com/Zerotwo0200/arcana.git
 cd arcana
 ```
 
