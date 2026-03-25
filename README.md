@@ -151,12 +151,7 @@ minikube docker-env | Invoke-Expression          # Windows PowerShell
 docker build -t arcana-api:latest ./backend
 
 # Применить манифесты
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/postgres.yaml
-kubectl apply -f k8s/api.yaml
-kubectl apply -f k8s/ingress-hpa.yaml
+kubectl apply -f k8s/
 
 # Проверить статус
 kubectl get all -n arcana
